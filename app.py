@@ -1,12 +1,15 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
+from datetime import datetime
 
+# Seitenlayout
 st.set_page_config(page_title="Optionsanalyse", layout="wide")
-
 st.title("📊 Aktien- & Optionsanalyse Dashboard")
 
+# Eingabefelder
 ticker_symbol = st.text_input("Bitte Ticker eingeben (z. B. INTC, AAPL, TSLA):", "INTC")
+fee_per_trade = st.number_input("Gebühr pro Handel ($):", min_value=0.0, value=3.5, step=0.5)
 
 if ticker_symbol:
     try:
@@ -27,15 +30,47 @@ if ticker_symbol:
             exp_date = st.selectbox("Bitte ein Ablaufdatum wählen:", expirations)
             opt_chain = ticker.option_chain(exp_date)
 
-            # Nur Puts anzeigen
             puts = opt_chain.puts.copy()
 
             # Unerwünschte Spalten entfernen
             cols_to_drop = ["change", "percentChange", "contractSize", "currency"]
             puts = puts.drop(columns=[c for c in cols_to_drop if c in puts.columns])
 
+            # --- Neue Berechnungen ---
+            exp_date_obj = datetime.strptime(exp_date, "%Y-%m-%d")
+            today = datetime.now()
+
+            # Haltedauer
+            puts["Haltedauer (Tage)"] = (exp_date_obj - today).days
+
+            # Nettoprämie
+            puts["Nettoprämie ($)"] = (puts["lastPrice"] * 100) - fee_per_trade
+
+            # Rendite pro Trade (%)
+            puts["Rendite (%)"] = (puts["Nettoprämie ($)"] / (puts["strike"] * 100 - puts["lastPrice"] * 100)) * 100
+
+            # Jahresrendite (%)
+            puts["Jahresrendite (%)"] = (puts["Rendite (%)"] / puts["Haltedauer (Tage)"]) * 365
+
+            # Sicherheitspolster (%)
+            puts["Sicherheitspolster (%)"] = ((current_price - puts["strike"]) / current_price) * 100
+
+            # Runde auf 2 Dezimalstellen
+            for col in ["Nettoprämie ($)", "Rendite (%)", "Jahresrendite (%)", "Sicherheitspolster (%)"]:
+                puts[col] = puts[col].round(2)
+
+            # --- Farbliche Hervorhebung ---
+            def highlight_itm(row):
+                """Hebt im Geld liegende Puts farblich hervor."""
+                color = "#ffe5e5" if row["strike"] > current_price else "#e5ffe5"
+                return ['background-color: {}'.format(color)] * len(row)
+
+            styled_df = puts.style.apply(highlight_itm, axis=1)
+
             st.subheader(f"📉 Put-Optionen ({exp_date})")
-            st.dataframe(puts)
+            st.dataframe(styled_df, use_container_width=True)
+
+            st.caption("🟩 Aus dem Geld | 🟥 Im Geld")
 
     except Exception as e:
         st.error(f"Fehler beim Laden der Daten: {e}")
