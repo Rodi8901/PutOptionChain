@@ -55,9 +55,9 @@ if ticker_symbol:
             # Sicherheitspolster (%)
             puts["Sicherheitspolster (%)"] = ((current_price - puts["strike"]) / current_price) * 100
 
-            # Runde auf 2 Dezimalstellen
-            for col in ["Nettoprämie ($)", "Rendite (%)", "Jahresrendite (%)", "Sicherheitspolster (%)"]:
-                puts[col] = puts[col].round(2)
+            # --- Rundung & Formatierung ---
+            numeric_cols = puts.select_dtypes(include=['float', 'int']).columns
+            puts[numeric_cols] = puts[numeric_cols].applymap(lambda x: round(x, 2))
 
             # --- Farbliche Hervorhebung ---
             def highlight_itm(row):
@@ -65,7 +65,8 @@ if ticker_symbol:
                 color = "#ffe5e5" if row["strike"] > current_price else "#e5ffe5"
                 return ['background-color: {}'.format(color)] * len(row)
 
-            styled_df = puts.style.apply(highlight_itm, axis=1)
+            styled_df = puts.style.apply(highlight_itm, axis=1)\
+                                  .format("{:,.2f}")
 
             st.subheader(f"📉 Put-Optionen ({exp_date})")
             st.dataframe(styled_df, use_container_width=True)
