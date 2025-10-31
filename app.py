@@ -2,56 +2,40 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 
-st.set_page_config(page_title="Aktien- & Optionsanalyse", layout="wide")
+st.set_page_config(page_title="Optionsanalyse", layout="wide")
 
 st.title("📊 Aktien- & Optionsanalyse Dashboard")
 
-# Eingabefeld für Ticker
-ticker = st.text_input("Bitte Ticker eingeben (z. B. INTC, AAPL, META)", "INTC").upper()
+ticker_symbol = st.text_input("Bitte Ticker eingeben (z. B. INTC, AAPL, TSLA):", "INTC")
 
-if ticker:
+if ticker_symbol:
     try:
-        stock = yf.Ticker(ticker)
+        ticker = yf.Ticker(ticker_symbol)
+        stock_info = ticker.info
+        current_price = stock_info.get("currentPrice", None)
 
-        # Spaltenlayout
-        col1, col2 = st.columns([2, 1])
+        st.subheader("Optionsdaten")
 
-        with col1:
-            st.subheader(f"📈 Kursentwicklung ({ticker})")
-            hist = stock.history(period="6mo")
-            if not hist.empty:
-                st.line_chart(hist["Close"])
-            else:
-                st.warning("Keine Kursdaten gefunden.")
+        if current_price:
+            st.markdown(f"**Basiswert:** {ticker_symbol.upper()} | **Aktueller Kurs:** {current_price:.2f} USD")
 
-        with col2:
-            st.subheader("🏦 Quartalsdaten")
-            qf = stock.quarterly_financials
-            if not qf.empty:
-                st.dataframe(qf)
-            else:
-                st.info("Keine Quartalsdaten verfügbar.")
-
-        st.divider()
-
-        # Optionsdaten
-        st.subheader("📅 Optionen")
-        expirations = stock.options
-        if expirations:
-            selected_exp = st.selectbox("Verfall auswählen", expirations)
-
-            if selected_exp:
-                try:
-                    chain = stock.option_chain(selected_exp)
-                    st.markdown(f"### Calls – {selected_exp}")
-                    st.dataframe(chain.calls)
-
-                    st.markdown(f"### Puts – {selected_exp}")
-                    st.dataframe(chain.puts)
-                except Exception as e:
-                    st.error(f"Fehler beim Laden der Optionskette: {e}")
+        # Ablaufdaten laden
+        expirations = ticker.options
+        if not expirations:
+            st.warning("Keine Optionsdaten für diesen Ticker gefunden.")
         else:
-            st.info("Für diesen Ticker wurden keine Optionsdaten gefunden.")
+            exp_date = st.selectbox("Bitte ein Ablaufdatum wählen:", expirations)
+            opt_chain = ticker.option_chain(exp_date)
+
+            # Nur Puts anzeigen
+            puts = opt_chain.puts.copy()
+
+            # Unerwünschte Spalten entfernen
+            cols_to_drop = ["change", "percentChange", "contractSize", "currency"]
+            puts = puts.drop(columns=[c for c in cols_to_drop if c in puts.columns])
+
+            st.subheader(f"📉 Put-Optionen ({exp_date})")
+            st.dataframe(puts)
 
     except Exception as e:
         st.error(f"Fehler beim Laden der Daten: {e}")
