@@ -31,8 +31,8 @@ if ticker_symbol:
 
             puts = opt_chain.puts.copy()
 
-            # Unerwünschte Spalten entfernen
-            cols_to_drop = ["change", "percentChange", "contractSize", "currency"]
+            # --- Unnötige Spalten entfernen ---
+            cols_to_drop = ["change", "percentChange", "contractSize", "currency", "lastTradeDate"]
             puts = puts.drop(columns=[c for c in cols_to_drop if c in puts.columns])
 
             # --- Neue Berechnungen ---
@@ -45,27 +45,35 @@ if ticker_symbol:
             puts["Jahresrendite (%)"] = (puts["Rendite (%)"] / puts["Haltedauer (Tage)"]) * 365
             puts["Sicherheitspolster (%)"] = ((current_price - puts["strike"]) / current_price) * 100
 
-            # --- Datentypen korrigieren ---
+            # --- Datentypen korrigieren & runden ---
             for col in puts.columns:
                 puts[col] = pd.to_numeric(puts[col], errors="ignore")
 
-            # --- Numerische Spalten runden ---
             numeric_cols = puts.select_dtypes(include=['float', 'int']).columns
-            puts[numeric_cols] = puts[numeric_cols].apply(pd.to_numeric, errors='coerce')
-            puts[numeric_cols] = puts[numeric_cols].round(2)
+            puts[numeric_cols] = puts[numeric_cols].apply(pd.to_numeric, errors='coerce').round(2)
 
-            # --- Farbliche Hervorhebung ---
-            def highlight_itm(row):
-                """Hebt im Geld liegende Puts farblich hervor."""
-                color = "#ffe5e5" if row["strike"] > current_price else "#e5ffe5"
-                return ['background-color: {}'.format(color)] * len(row)
+            # --- Farb- und Schrift-Hervorhebung ---
+            def highlight_and_bold(row):
+                styles = []
+                if row["strike"] > current_price:
+                    bg = "#ffe5e5"  # im Geld
+                else:
+                    bg = "#e5ffe5"  # aus dem Geld
 
-            styled_df = puts.style.apply(highlight_itm, axis=1).format(precision=2)
+                # Fett bei Jahresrendite > 10%
+                font_weight = "bold" if row.get("Jahresrendite (%)", 0) > 10 else "normal"
+                styles = [f"background-color: {bg}; font-weight: {font_weight}"] * len(row)
+                return styles
+
+            # Sortieren nach Jahresrendite (höchste zuerst)
+            puts = puts.sort_values(by="Jahresrendite (%)", ascending=False)
+
+            styled_df = puts.style.apply(highlight_and_bold, axis=1).format(precision=2)
 
             st.subheader(f"📉 Put-Optionen ({exp_date})")
             st.dataframe(styled_df, use_container_width=True)
 
-            st.caption("🟩 Aus dem Geld | 🟥 Im Geld")
+            st.caption("🟩 Aus dem Geld | 🟥 Im Geld — **fett = >10 % Jahresrendite**")
 
     except Exception as e:
         st.error(f"Fehler beim Laden der Daten: {e}")
