@@ -35,17 +35,20 @@ if ticker_symbol:
             cols_to_drop = ["change", "percentChange", "contractSize", "currency", "lastTradeDate"]
             puts = puts.drop(columns=[c for c in cols_to_drop if c in puts.columns])
 
-            # --- Neue Berechnungen ---
+            # --- Fallback falls kein Bid vorhanden ---
+            puts["bid"] = puts["bid"].fillna(puts["lastPrice"])
+
+            # --- Neue Berechnungen (auf Basis Bid-Kurs) ---
             exp_date_obj = datetime.strptime(exp_date, "%Y-%m-%d")
             today = datetime.now()
 
             puts["Haltedauer (Tage)"] = (exp_date_obj - today).days
-            puts["Nettoprämie ($)"] = (puts["lastPrice"] * 100) - fee_per_trade
-            puts["Rendite (%)"] = (puts["Nettoprämie ($)"] / (puts["strike"] * 100 - puts["lastPrice"] * 100)) * 100
+            puts["Prämie ($)"] = puts["bid"] * 100
+            puts["Nettoprämie ($)"] = puts["Prämie ($)"] - fee_per_trade
+            puts["Rendite (%)"] = (puts["Nettoprämie ($)"] / (puts["strike"] * 100 - puts["Prämie ($)"])) * 100
             puts["Jahresrendite (%)"] = (puts["Rendite (%)"] / puts["Haltedauer (Tage)"]) * 365
             puts["Sicherheitspolster (%)"] = ((current_price - puts["strike"]) / current_price) * 100
 
-            
             # --- Datentypen korrigieren & runden ---
             for col in puts.columns:
                 puts[col] = pd.to_numeric(puts[col], errors="ignore")
@@ -55,23 +58,19 @@ if ticker_symbol:
 
             # --- Farb- und Schrift-Hervorhebung ---
             def highlight_and_bold(row):
-                styles = []
                 if row["strike"] > current_price:
                     bg = "#ffe5e5"  # im Geld
                 else:
                     bg = "#e5ffe5"  # aus dem Geld
-
-                # Fett bei Jahresrendite > 10%
                 font_weight = "bold" if row.get("Jahresrendite (%)", 0) > 10 else "normal"
-                styles = [f"background-color: {bg}; font-weight: {font_weight}"] * len(row)
-                return styles
+                return [f"background-color: {bg}; font-weight: {font_weight}"] * len(row)
 
-            # Sortieren nach Jahresrendite (höchste zuerst)
+            # --- Sortieren nach Jahresrendite ---
             puts = puts.sort_values(by="Jahresrendite (%)", ascending=False)
 
             styled_df = puts.style.apply(highlight_and_bold, axis=1).format(precision=2)
 
-            st.subheader(f"📉 Put-Optionen ({exp_date})")
+            st.subheader(f"📉 Put-Optionen ({exp_date}) – basierend auf BID-Preisen")
             st.dataframe(styled_df, use_container_width=True)
 
             st.caption("🟩 Aus dem Geld | 🟥 Im Geld — **fett = >10 % Jahresrendite**")
