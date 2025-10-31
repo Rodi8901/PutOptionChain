@@ -3,7 +3,6 @@ import yfinance as yf
 import pandas as pd
 from datetime import datetime
 
-# Seitenlayout
 st.set_page_config(page_title="Optionsanalyse", layout="wide")
 st.title("📊 Aktien- & Optionsanalyse Dashboard")
 
@@ -40,24 +39,20 @@ if ticker_symbol:
             exp_date_obj = datetime.strptime(exp_date, "%Y-%m-%d")
             today = datetime.now()
 
-            # Haltedauer
             puts["Haltedauer (Tage)"] = (exp_date_obj - today).days
-
-            # Nettoprämie
             puts["Nettoprämie ($)"] = (puts["lastPrice"] * 100) - fee_per_trade
-
-            # Rendite pro Trade (%)
             puts["Rendite (%)"] = (puts["Nettoprämie ($)"] / (puts["strike"] * 100 - puts["lastPrice"] * 100)) * 100
-
-            # Jahresrendite (%)
             puts["Jahresrendite (%)"] = (puts["Rendite (%)"] / puts["Haltedauer (Tage)"]) * 365
-
-            # Sicherheitspolster (%)
             puts["Sicherheitspolster (%)"] = ((current_price - puts["strike"]) / current_price) * 100
 
-            # --- Rundung & Formatierung ---
+            # --- Datentypen korrigieren ---
+            for col in puts.columns:
+                puts[col] = pd.to_numeric(puts[col], errors="ignore")
+
+            # --- Numerische Spalten runden ---
             numeric_cols = puts.select_dtypes(include=['float', 'int']).columns
-            puts[numeric_cols] = puts[numeric_cols].applymap(lambda x: round(x, 2))
+            puts[numeric_cols] = puts[numeric_cols].apply(pd.to_numeric, errors='coerce')
+            puts[numeric_cols] = puts[numeric_cols].round(2)
 
             # --- Farbliche Hervorhebung ---
             def highlight_itm(row):
@@ -65,8 +60,7 @@ if ticker_symbol:
                 color = "#ffe5e5" if row["strike"] > current_price else "#e5ffe5"
                 return ['background-color: {}'.format(color)] * len(row)
 
-            styled_df = puts.style.apply(highlight_itm, axis=1)\
-                                  .format("{:,.2f}")
+            styled_df = puts.style.apply(highlight_itm, axis=1).format(precision=2)
 
             st.subheader(f"📉 Put-Optionen ({exp_date})")
             st.dataframe(styled_df, use_container_width=True)
