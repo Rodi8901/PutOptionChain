@@ -45,6 +45,37 @@ if ticker_symbol:
             puts["Jahresrendite (%)"] = (puts["Rendite (%)"] / puts["Haltedauer (Tage)"]) * 365
             puts["Sicherheitspolster (%)"] = ((current_price - puts["strike"]) / current_price) * 100
 
+
+import math
+from scipy.stats import norm
+
+# --- Zusätzliche Delta-Berechnung ---
+r = 0.045  # risikofreier US-Zins (4,5 %), kannst du dynamisch machen falls gewünscht
+
+def calc_put_delta(S, K, T, sigma, r):
+    try:
+        if T <= 0 or sigma <= 0:
+            return None
+        d1 = (math.log(S / K) + (r + 0.5 * sigma ** 2) * T) / (sigma * math.sqrt(T))
+        delta = norm.cdf(d1) - 1  # Put-Delta
+        return round(delta, 3)
+    except Exception:
+        return None
+
+puts["Delta"] = puts.apply(
+    lambda row: calc_put_delta(
+        current_price,
+        row["strike"],
+        max(row["Haltedauer (Tage)"], 1) / 365,
+        row.get("impliedVolatility", 0.0),
+        r,
+    ),
+    axis=1
+)
+
+
+
+            
             # --- Datentypen korrigieren & runden ---
             for col in puts.columns:
                 puts[col] = pd.to_numeric(puts[col], errors="ignore")
