@@ -26,9 +26,16 @@ if ticker_symbol:
         if not expirations:
             st.warning("Keine Optionsdaten für diesen Ticker gefunden.")
         else:
-            exp_date = st.selectbox("Bitte ein Ablaufdatum wählen:", expirations)
-            opt_chain = ticker.option_chain(exp_date)
+            # Wochen-/Monatsoptionen erkennen
+            def classify_option(exp_date):
+                d = datetime.strptime(exp_date, "%Y-%m-%d")
+                return "📅 Monatsoption" if d.day >= 15 else "🗓️ Wochenoption"
 
+            exp_labels = [f"{exp} ({classify_option(exp)})" for exp in expirations]
+            exp_date = st.selectbox("Bitte ein Ablaufdatum wählen:", exp_labels)
+            exp_date = exp_date.split(" ")[0]  # Nur Datumsteil extrahieren
+
+            opt_chain = ticker.option_chain(exp_date)
             puts = opt_chain.puts.copy()
 
             # --- Unnötige Spalten entfernen ---
@@ -62,68 +69,74 @@ if ticker_symbol:
                     bg = "#ffe5e5"  # im Geld
                 else:
                     bg = "#e5ffe5"  # aus dem Geld
+
                 font_weight = "bold" if row.get("Jahresrendite (%)", 0) > 10 else "normal"
-                font_bold_cols = ["bid", "Jahresrendite (%)"]
+                bold_cols = ["bid", "Jahresrendite (%)"]
                 return [
-                    f"background-color: {bg}; font-weight: bold"
-                    if col in font_bold_cols else f"background-color: {bg}; font-weight: {font_weight}"
-                    for col in row.index
+                    f"background-color: {bg}; font-weight: bold;" if col in bold_cols
+                    else f"background-color: {bg}; font-weight: {font_weight};"
+                    for col in puts.columns
                 ]
 
-            # --- Sortieren nach Strike ---
+            # --- Sortieren nach Strike (niedrigster zuerst) ---
             puts = puts.sort_values(by="strike", ascending=True)
 
             styled_df = puts.style.apply(highlight_and_bold, axis=1).format(precision=2)
 
+            # --- Tabelle anzeigen ---
             st.subheader(f"📉 Put-Optionen ({exp_date}) – basierend auf BID-Preisen")
-            st.dataframe(styled_df, use_container_width=True, height=700)
+            st.dataframe(styled_df, use_container_width=True, height=800)
             st.caption("🟩 Aus dem Geld | 🟥 Im Geld — **fett = >10 % Jahresrendite**")
 
-            # ------------------------------
-            #   STRIKE-ANALYSE MIT MINI-CHART
-            # ------------------------------
-            st.subheader("🎯 Strike-Analyse über Laufzeiten")
-            target_strike = st.number_input("Strike-Wert für Analyse eingeben:", min_value=0.0, step=1.0, value=float(current_price) if current_price else 100.0)
+            # --- Strike-Analyse ---
+            st.markdown("---")
+            st.subheader("🔍 Strike-Analyse über Laufzeiten")
 
-            strike_data = []
-            for exp in expirations:
-                try:
-                    opt_chain = ticker.option_chain(exp)
-                    puts_exp = opt_chain.puts
-                    puts_exp["bid"] = puts_exp["bid"].fillna(puts_exp["lastPrice"])
-                    exp_date_obj = datetime.strptime(exp, "%Y-%m-%d")
-                    days = (exp_date_obj - today).days
-                    row = puts_exp.loc[puts_exp["strike"] == target_strike]
-                    if not row.empty:
-                        bid = row["bid"].values[0]
-                        volume = row["volume"].values[0]
-                        oi = row["openInterest"].values[0]
-                        prem = bid * 100
-                        rendite = (prem / (target_strike * 100 - prem)) * 100
-                        jahresrendite = (rendite / days) * 365 if days > 0 else 0
-                        strike_data.append({
-                            "Laufzeit": exp,
-                            "Bid": bid,
-                            "Jahresrendite (%)": jahresrendite,
-                            "Volumen": volume,
-                            "Open Interest": oi
-                        })
-                except Exception:
-                    continue
+            target_strike = st.number_input(
+                "Strike-Wert für Analyse eingeben:",
+                min_value=0.0,
+                step=1.0,
+                value=0.0,
+                format="%.2f"
+            )
 
-            if strike_data:
-                df_strike = pd.DataFrame(strike_data)
-                df_strike = df_strike.round(2)
+            if target_strike > 0:
+                strike_data = []
+                for exp in expirations:
+                    try:
+                        opt_chain = ticker.option_chain(exp)
+                        puts_exp = opt_chain.puts
+                        puts_exp["bid"] = puts_exp["bid"].fillna(puts_exp["lastPrice"])
+                        exp_date_obj = datetime.strptime(exp, "%Y-%m-%d")
+                        days = (exp_date_obj - today).days
+                        row = puts_exp.loc[puts_exp["strike"] == target_strike]
+                        if not row.empty:
+                            bid = row["bid"].values[0]
+                            volume = row["volume"].values[0]
+                            oi = row["openInterest"].values[0]
+                            prem = bid * 100
+                            rendite = (prem / (target_strike * 100 - prem)) * 100
+                            jahresrendite = (rendite / days) * 365 if days > 0 else 0
+                            strike_data.append({
+                                "Laufzeit": exp,
+                                "Bid": bid,
+                                "Jahresrendite (%)": jahresrendite,
+                                "Volumen": volume,
+                                "Open Interest": oi
+                            })
+                    except Exception:
+                        continue
 
-                st.write("📅 Renditeübersicht für Strike", target_strike)
-                st.dataframe(df_strike.set_index("Laufzeit").T, use_container_width=True)
-
-                # --- Mini Chart unter der Tabelle ---
-                st.subheader("📈 Jahresrendite über Laufzeiten")
-                st.line_chart(df_strike.set_index("Laufzeit")["Jahresrendite (%)"])
-
+                if strike_data:
+                    df_strike = pd.DataFrame(strike_data).round(2)
+                    st.write(f"📅 Renditeübersicht für Strike {target_strike}")
+                    st.dataframe(df_strike.set_index("Laufzeit").T, use_container_width=True)
+                    st.subheader("📈 Jahresrendite über Laufzeiten")
+                    st.line_chart(df_strike.set_index("Laufzeit")["Jahresrendite (%)"])
+                else:
+                    st.info("Keine passenden Daten für diesen Strike gefunden.")
             else:
-                st.info("Keine passenden Daten für diesen Strike gefunden.")
+                st.caption("Bitte einen Strike-Wert eingeben, um die Analyse zu starten.")
 
     except Exception as e:
         st.error(f"Fehler beim Laden der Daten: {e}")
