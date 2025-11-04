@@ -28,6 +28,7 @@ if ticker_symbol:
         else:
             exp_date = st.selectbox("Bitte ein Ablaufdatum wählen:", expirations)
             opt_chain = ticker.option_chain(exp_date)
+
             puts = opt_chain.puts.copy()
 
             # --- Unnötige Spalten entfernen ---
@@ -62,64 +63,67 @@ if ticker_symbol:
                 else:
                     bg = "#e5ffe5"  # aus dem Geld
                 font_weight = "bold" if row.get("Jahresrendite (%)", 0) > 10 else "normal"
-                return [f"background-color: {bg}; font-weight: {font_weight}"] * len(row)
+                font_bold_cols = ["bid", "Jahresrendite (%)"]
+                return [
+                    f"background-color: {bg}; font-weight: bold"
+                    if col in font_bold_cols else f"background-color: {bg}; font-weight: {font_weight}"
+                    for col in row.index
+                ]
 
-            def emphasize_columns(val, col_name):
-                if col_name in ["bid", "Jahresrendite (%)"]:
-                    return "font-weight: bold"
-                return ""
-
-            # --- Sortieren nach Strike (aufsteigend) ---
+            # --- Sortieren nach Strike ---
             puts = puts.sort_values(by="strike", ascending=True)
 
-            styled_df = (
-                puts.style
-                .apply(highlight_and_bold, axis=1)
-                .applymap_index(lambda _: "font-weight: bold;", axis=0)
-                .apply(lambda s: [emphasize_columns(v, s.name) for v in s], axis=0)
-                .format(precision=2)
-            )
+            styled_df = puts.style.apply(highlight_and_bold, axis=1).format(precision=2)
 
             st.subheader(f"📉 Put-Optionen ({exp_date}) – basierend auf BID-Preisen")
-            st.dataframe(styled_df, use_container_width=True, height=900)
+            st.dataframe(styled_df, use_container_width=True, height=700)
+            st.caption("🟩 Aus dem Geld | 🟥 Im Geld — **fett = >10 % Jahresrendite**")
 
-            st.caption("🟩 Aus dem Geld | 🟥 Im Geld — **fett = >10 % Jahresrendite, sowie BID und Jahresrendite hervorgehoben**")
+            # ------------------------------
+            #   STRIKE-ANALYSE MIT MINI-CHART
+            # ------------------------------
+            st.subheader("🎯 Strike-Analyse über Laufzeiten")
+            target_strike = st.number_input("Strike-Wert für Analyse eingeben:", min_value=0.0, step=1.0, value=float(current_price) if current_price else 100.0)
 
-            # ---------------------------------------------
-            # 🔍 Zusatzfunktion: Strike-Analyse über alle Laufzeiten
-            # ---------------------------------------------
-            st.markdown("---")
-            st.subheader("📈 Strike-Vergleich über Laufzeiten")
-
-            strike_input = st.number_input("Strike-Wert für Vergleich eingeben:", min_value=0.0, value=float(puts["strike"].median()), step=1.0)
-
-            summary_data = {"Ablaufdatum": [], "Bid": [], "Jahresrendite (%)": [], "Volumen": [], "Open Interest": []}
-
+            strike_data = []
             for exp in expirations:
                 try:
-                    chain = ticker.option_chain(exp).puts
-                    chain["bid"] = chain["bid"].fillna(chain["lastPrice"])
-                    exp_obj = datetime.strptime(exp, "%Y-%m-%d")
-                    days = (exp_obj - today).days
-
-                    # Nächster Strike zur Eingabe finden
-                    closest = chain.iloc[(chain["strike"] - strike_input).abs().argsort()[:1]]
-                    bid = float(closest["bid"])
-                    premium = bid * 100
-                    rendite = (premium - fee_per_trade) / (closest["strike"].values[0] * 100 - premium) * 100
-                    jahresrendite = (rendite / days) * 365 if days > 0 else None
-
-                    summary_data["Ablaufdatum"].append(exp)
-                    summary_data["Bid"].append(round(bid, 2))
-                    summary_data["Jahresrendite (%)"].append(round(jahresrendite, 2) if jahresrendite else None)
-                    summary_data["Volumen"].append(int(closest["volume"].values[0]))
-                    summary_data["Open Interest"].append(int(closest["openInterest"].values[0]))
+                    opt_chain = ticker.option_chain(exp)
+                    puts_exp = opt_chain.puts
+                    puts_exp["bid"] = puts_exp["bid"].fillna(puts_exp["lastPrice"])
+                    exp_date_obj = datetime.strptime(exp, "%Y-%m-%d")
+                    days = (exp_date_obj - today).days
+                    row = puts_exp.loc[puts_exp["strike"] == target_strike]
+                    if not row.empty:
+                        bid = row["bid"].values[0]
+                        volume = row["volume"].values[0]
+                        oi = row["openInterest"].values[0]
+                        prem = bid * 100
+                        rendite = (prem / (target_strike * 100 - prem)) * 100
+                        jahresrendite = (rendite / days) * 365 if days > 0 else 0
+                        strike_data.append({
+                            "Laufzeit": exp,
+                            "Bid": bid,
+                            "Jahresrendite (%)": jahresrendite,
+                            "Volumen": volume,
+                            "Open Interest": oi
+                        })
                 except Exception:
                     continue
 
-            summary_df = pd.DataFrame(summary_data).set_index("Ablaufdatum").T
+            if strike_data:
+                df_strike = pd.DataFrame(strike_data)
+                df_strike = df_strike.round(2)
 
-            st.dataframe(summary_df.style.format(precision=2), use_container_width=True)
+                st.write("📅 Renditeübersicht für Strike", target_strike)
+                st.dataframe(df_strike.set_index("Laufzeit").T, use_container_width=True)
+
+                # --- Mini Chart unter der Tabelle ---
+                st.subheader("📈 Jahresrendite über Laufzeiten")
+                st.line_chart(df_strike.set_index("Laufzeit")["Jahresrendite (%)"])
+
+            else:
+                st.info("Keine passenden Daten für diesen Strike gefunden.")
 
     except Exception as e:
         st.error(f"Fehler beim Laden der Daten: {e}")
