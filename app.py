@@ -58,22 +58,42 @@ if ticker_symbol:
 
             # --- Farb- und Schrift-Hervorhebung ---
             def highlight_and_bold(row):
+                # Farbliche Kennzeichnung
                 if row["strike"] > current_price:
                     bg = "#ffe5e5"  # im Geld
                 else:
                     bg = "#e5ffe5"  # aus dem Geld
-                font_weight = "bold" if row.get("Jahresrendite (%)", 0) > 10 else "normal"
-                return [f"background-color: {bg}; font-weight: {font_weight}"] * len(row)
+
+                # Standard-Stil
+                styles = [f"background-color: {bg}; font-weight: normal"] * len(row)
+
+                # Fett, wenn Jahresrendite > 10 %
+                if row.get("Jahresrendite (%)", 0) > 10:
+                    styles = [f"background-color: {bg}; font-weight: bold"] * len(row)
+
+                return styles
+
+            def emphasize_columns(val, col_name):
+                """Fette Schrift nur für bestimmte Spalten"""
+                if col_name in ["bid", "Jahresrendite (%)"]:
+                    return "font-weight: bold"
+                return ""
 
             # --- Sortieren nach Jahresrendite ---
             puts = puts.sort_values(by="Jahresrendite (%)", ascending=False)
 
-            styled_df = puts.style.apply(highlight_and_bold, axis=1).format(precision=2)
+            styled_df = (
+                puts.style
+                .apply(highlight_and_bold, axis=1)
+                .applymap_index(lambda _: "font-weight: bold;", axis=0)
+                .apply(lambda s: [emphasize_columns(v, s.name) for v in s], axis=0)
+                .format(precision=2)
+            )
 
             st.subheader(f"📉 Put-Optionen ({exp_date}) – basierend auf BID-Preisen")
-            st.dataframe(styled_df, use_container_width=True)
+            st.dataframe(styled_df, use_container_width=True, height=900)
 
-            st.caption("🟩 Aus dem Geld | 🟥 Im Geld — **fett = >10 % Jahresrendite**")
+            st.caption("🟩 Aus dem Geld | 🟥 Im Geld — **fett = >10 % Jahresrendite, sowie BID und Jahresrendite hervorgehoben**")
 
     except Exception as e:
         st.error(f"Fehler beim Laden der Daten: {e}")
