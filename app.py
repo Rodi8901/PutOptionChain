@@ -28,7 +28,6 @@ if ticker_symbol:
         else:
             exp_date = st.selectbox("Bitte ein Ablaufdatum wählen:", expirations)
             opt_chain = ticker.option_chain(exp_date)
-
             puts = opt_chain.puts.copy()
 
             # --- Unnötige Spalten entfernen ---
@@ -58,29 +57,20 @@ if ticker_symbol:
 
             # --- Farb- und Schrift-Hervorhebung ---
             def highlight_and_bold(row):
-                # Farbliche Kennzeichnung
                 if row["strike"] > current_price:
                     bg = "#ffe5e5"  # im Geld
                 else:
                     bg = "#e5ffe5"  # aus dem Geld
-
-                # Standard-Stil
-                styles = [f"background-color: {bg}; font-weight: normal"] * len(row)
-
-                # Fett, wenn Jahresrendite > 10 %
-                if row.get("Jahresrendite (%)", 0) > 10:
-                    styles = [f"background-color: {bg}; font-weight: bold"] * len(row)
-
-                return styles
+                font_weight = "bold" if row.get("Jahresrendite (%)", 0) > 10 else "normal"
+                return [f"background-color: {bg}; font-weight: {font_weight}"] * len(row)
 
             def emphasize_columns(val, col_name):
-                """Fette Schrift nur für bestimmte Spalten"""
                 if col_name in ["bid", "Jahresrendite (%)"]:
                     return "font-weight: bold"
                 return ""
 
-            # --- Sortieren nach Jahresrendite ---
-            puts = puts.sort_values(by="Jahresrendite (%)", ascending=False)
+            # --- Sortieren nach Strike (aufsteigend) ---
+            puts = puts.sort_values(by="strike", ascending=True)
 
             styled_df = (
                 puts.style
@@ -94,6 +84,42 @@ if ticker_symbol:
             st.dataframe(styled_df, use_container_width=True, height=900)
 
             st.caption("🟩 Aus dem Geld | 🟥 Im Geld — **fett = >10 % Jahresrendite, sowie BID und Jahresrendite hervorgehoben**")
+
+            # ---------------------------------------------
+            # 🔍 Zusatzfunktion: Strike-Analyse über alle Laufzeiten
+            # ---------------------------------------------
+            st.markdown("---")
+            st.subheader("📈 Strike-Vergleich über Laufzeiten")
+
+            strike_input = st.number_input("Strike-Wert für Vergleich eingeben:", min_value=0.0, value=float(puts["strike"].median()), step=1.0)
+
+            summary_data = {"Ablaufdatum": [], "Bid": [], "Jahresrendite (%)": [], "Volumen": [], "Open Interest": []}
+
+            for exp in expirations:
+                try:
+                    chain = ticker.option_chain(exp).puts
+                    chain["bid"] = chain["bid"].fillna(chain["lastPrice"])
+                    exp_obj = datetime.strptime(exp, "%Y-%m-%d")
+                    days = (exp_obj - today).days
+
+                    # Nächster Strike zur Eingabe finden
+                    closest = chain.iloc[(chain["strike"] - strike_input).abs().argsort()[:1]]
+                    bid = float(closest["bid"])
+                    premium = bid * 100
+                    rendite = (premium - fee_per_trade) / (closest["strike"].values[0] * 100 - premium) * 100
+                    jahresrendite = (rendite / days) * 365 if days > 0 else None
+
+                    summary_data["Ablaufdatum"].append(exp)
+                    summary_data["Bid"].append(round(bid, 2))
+                    summary_data["Jahresrendite (%)"].append(round(jahresrendite, 2) if jahresrendite else None)
+                    summary_data["Volumen"].append(int(closest["volume"].values[0]))
+                    summary_data["Open Interest"].append(int(closest["openInterest"].values[0]))
+                except Exception:
+                    continue
+
+            summary_df = pd.DataFrame(summary_data).set_index("Ablaufdatum").T
+
+            st.dataframe(summary_df.style.format(precision=2), use_container_width=True)
 
     except Exception as e:
         st.error(f"Fehler beim Laden der Daten: {e}")
