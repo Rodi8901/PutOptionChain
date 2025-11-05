@@ -11,6 +11,10 @@ st.title("📊 Aktien- & Optionsanalyse Dashboard")
 ticker_symbol = st.text_input("Bitte Ticker eingeben (z. B. INTC, AAPL, TSLA):", "INTC")
 fee_per_trade = st.number_input("Gebühr pro Handel ($):", min_value=0.0, value=3.5, step=0.5)
 
+# Zustand speichern, um die Laufzeit-Auswahl beizubehalten
+if "selected_exp_date" not in st.session_state:
+    st.session_state.selected_exp_date = None
+
 if ticker_symbol:
     try:
         ticker = yf.Ticker(ticker_symbol)
@@ -33,8 +37,19 @@ if ticker_symbol:
                 return "📅 Monatsoption" if d.day >= 15 else "🗓️ Wochenoption"
 
             exp_labels = [f"{exp} ({classify_option(exp)})" for exp in expirations]
-            exp_date_label = st.selectbox("Bitte ein Ablaufdatum wählen:", exp_labels)
-            exp_date = exp_date_label.split(" ")[0]  # Nur Datumsteil extrahieren
+
+            # Falls vorherige Laufzeit verfügbar ist, diese voreinstellen
+            default_index = 0
+            if st.session_state.selected_exp_date in expirations:
+                default_index = expirations.index(st.session_state.selected_exp_date)
+
+            exp_date_label = st.selectbox(
+                "Bitte ein Ablaufdatum wählen:",
+                exp_labels,
+                index=default_index
+            )
+            exp_date = exp_date_label.split(" ")[0]
+            st.session_state.selected_exp_date = exp_date  # Speichern für nächste Auswahl
 
             # === OptionCharts-Link unterhalb der Auswahl ===
             optioncharts_url = f"https://optioncharts.io/options/{ticker_symbol.upper()}/option-chain?option_type=put&expiration_dates={exp_date}:m&view=list&strike_range=all"
@@ -81,7 +96,6 @@ if ticker_symbol:
                 styles = []
                 for col in puts.columns:
                     base_style = f"background-color: {bg};"
-                    # Spezielle Formatierung für Bid und Jahresrendite
                     if col in ["bid", "Jahresrendite (%)"]:
                         color_style = "color: #b30000; font-size: 1.1em;"
                         if col == "Jahresrendite (%)" and row.get("Jahresrendite (%)", 0) > 10:
@@ -89,7 +103,6 @@ if ticker_symbol:
                         else:
                             styles.append(f"{base_style} {color_style}")
                     else:
-                        # Für alle anderen Spalten bleibt das Hintergrundschema
                         if row.get("Jahresrendite (%)", 0) > 10:
                             styles.append(f"{base_style} font-weight: bold;")
                         else:
@@ -161,16 +174,20 @@ if ticker_symbol:
             st.markdown("---")
             st.subheader("📊 TradingView Chart")
 
+            # Versuchen, die Börse herauszufinden (z. B. NYSE, NASDAQ)
+            exchange = stock_info.get("exchange", "")
             tv_symbol = ticker_symbol.upper()
+
+            # Einige mögliche Fälle abfangen
+            if exchange and exchange.upper() in ["NASDAQ", "NYSE", "AMEX"]:
+                tv_full_symbol = f"{exchange.upper()}:{tv_symbol}"
+            else:
+                tv_full_symbol = tv_symbol  # ohne Präfix, damit TradingView selbst entscheidet
+
             tradingview_html = f"""
             <!-- TradingView Widget BEGIN -->
             <div class="tradingview-widget-container" style="position:relative; width:100%; min-height:900px; overflow:hidden;">
               <div class="tradingview-widget-container__widget" style="height:100%; width:100%;"></div>
-              <div class="tradingview-widget-copyright" style="position:absolute; bottom:0;">
-                <a href="https://www.tradingview.com/symbols/NASDAQ-{tv_symbol}/" rel="noopener nofollow" target="_blank">
-                  <span class="blue-text">{tv_symbol} stock chart</span>
-                </a><span class="trademark"> by TradingView</span>
-              </div>
               <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
               {{
               "width": "100%",
@@ -186,7 +203,7 @@ if ticker_symbol:
               "locale": "en",
               "save_image": true,
               "style": "1",
-              "symbol": "NASDAQ:{tv_symbol}",
+              "symbol": "{tv_full_symbol}",
               "theme": "light",
               "timezone": "Etc/UTC",
               "backgroundColor": "#ffffff",
