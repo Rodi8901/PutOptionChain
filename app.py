@@ -182,7 +182,7 @@ if ticker_symbol:
             <!-- TradingView Widget END -->
             """
 
-            components.html(tradingview_html, height=640)
+            components.html(tradingview_html, height=920)
 
     except Exception as e:
         st.error(f"Fehler beim Laden der Daten: {e}")
