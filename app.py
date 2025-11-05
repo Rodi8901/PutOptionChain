@@ -72,28 +72,38 @@ if ticker_symbol:
             puts[numeric_cols] = puts[numeric_cols].apply(pd.to_numeric, errors="coerce").round(2)
 
             # --- Farb- und Schrift-Hervorhebung ---
-            def highlight_and_bold(row):
+            def highlight_and_style(row):
                 if row["strike"] > current_price:
                     bg = "#ffe5e5"  # im Geld
                 else:
                     bg = "#e5ffe5"  # aus dem Geld
 
-                font_weight = "bold" if row.get("Jahresrendite (%)", 0) > 10 else "normal"
-                bold_cols = ["bid", "Jahresrendite (%)"]
-                return [
-                    f"background-color: {bg}; font-weight: bold;" if col in bold_cols
-                    else f"background-color: {bg}; font-weight: {font_weight};"
-                    for col in puts.columns
-                ]
+                styles = []
+                for col in puts.columns:
+                    base_style = f"background-color: {bg};"
+                    # Spezielle Formatierung für Bid und Jahresrendite
+                    if col in ["bid", "Jahresrendite (%)"]:
+                        color_style = "color: #b30000; font-size: 1.1em;"
+                        if col == "Jahresrendite (%)" and row.get("Jahresrendite (%)", 0) > 10:
+                            styles.append(f"{base_style} {color_style} font-weight: bold;")
+                        else:
+                            styles.append(f"{base_style} {color_style}")
+                    else:
+                        # Für alle anderen Spalten bleibt das Hintergrundschema
+                        if row.get("Jahresrendite (%)", 0) > 10:
+                            styles.append(f"{base_style} font-weight: bold;")
+                        else:
+                            styles.append(base_style)
+                return styles
 
             # --- Sortieren nach Strike ---
             puts = puts.sort_values(by="strike", ascending=True)
-            styled_df = puts.style.apply(highlight_and_bold, axis=1).format(precision=2)
+            styled_df = puts.style.apply(highlight_and_style, axis=1).format(precision=2)
 
             # --- Tabelle anzeigen ---
             st.subheader(f"📉 Put-Optionen ({exp_date}) – basierend auf BID-Preisen")
             st.dataframe(styled_df, use_container_width=True, height=800)
-            st.caption("🟩 Aus dem Geld | 🟥 Im Geld — **fett = >10 % Jahresrendite**")
+            st.caption("🟩 Aus dem Geld | 🟥 Im Geld — **fett = >10 % Jahresrendite** | 🔴 Rot = Bid & Rendite")
 
             # --- Strike-Analyse ---
             st.markdown("---")
