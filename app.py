@@ -33,8 +33,15 @@ if ticker_symbol:
                 return "📅 Monatsoption" if d.day >= 15 else "🗓️ Wochenoption"
 
             exp_labels = [f"{exp} ({classify_option(exp)})" for exp in expirations]
-            exp_date = st.selectbox("Bitte ein Ablaufdatum wählen:", exp_labels)
-            exp_date = exp_date.split(" ")[0]  # Nur Datumsteil extrahieren
+            exp_date_label = st.selectbox("Bitte ein Ablaufdatum wählen:", exp_labels)
+            exp_date = exp_date_label.split(" ")[0]  # Nur Datumsteil extrahieren
+
+            # === OptionCharts-Link unterhalb der Auswahl ===
+            optioncharts_url = f"https://optioncharts.io/options/{ticker_symbol.upper()}/option-chain?option_type=put&expiration_dates={exp_date}:m&view=list&strike_range=all"
+            st.markdown(
+                f"🔗 **Direkter Link zur Option Chain:** [OptionCharts.io für {ticker_symbol.upper()} – {exp_date}]({optioncharts_url})",
+                unsafe_allow_html=True
+            )
 
             opt_chain = ticker.option_chain(exp_date)
             puts = opt_chain.puts.copy()
@@ -81,7 +88,6 @@ if ticker_symbol:
 
             # --- Sortieren nach Strike ---
             puts = puts.sort_values(by="strike", ascending=True)
-
             styled_df = puts.style.apply(highlight_and_bold, axis=1).format(precision=2)
 
             # --- Tabelle anzeigen ---
@@ -182,7 +188,6 @@ if ticker_symbol:
             </div>
             <!-- TradingView Widget END -->
             """
-
             components.html(tradingview_html, height=1000)
 
     except Exception as e:
