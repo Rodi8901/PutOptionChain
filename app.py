@@ -2,6 +2,7 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 from datetime import datetime
+import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Optionsanalyse", layout="wide")
 st.title("📊 Aktien- & Optionsanalyse Dashboard")
@@ -78,7 +79,7 @@ if ticker_symbol:
                     for col in puts.columns
                 ]
 
-            # --- Sortieren nach Strike (niedrigster zuerst) ---
+            # --- Sortieren nach Strike ---
             puts = puts.sort_values(by="strike", ascending=True)
 
             styled_df = puts.style.apply(highlight_and_bold, axis=1).format(precision=2)
@@ -137,6 +138,51 @@ if ticker_symbol:
                     st.info("Keine passenden Daten für diesen Strike gefunden.")
             else:
                 st.caption("Bitte einen Strike-Wert eingeben, um die Analyse zu starten.")
+
+            # ------------------------------------------------
+            # 🔹 TradingView Chart Widget (untere Sektion)
+            # ------------------------------------------------
+            st.markdown("---")
+            st.subheader("📊 TradingView Chart")
+
+            tv_symbol = ticker_symbol.upper()
+            tradingview_html = f"""
+            <!-- TradingView Widget BEGIN -->
+            <div class="tradingview-widget-container" style="height:100%;width:100%">
+              <div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div>
+              <div class="tradingview-widget-copyright">
+                <a href="https://www.tradingview.com/symbols/NASDAQ-{tv_symbol}/" rel="noopener nofollow" target="_blank">
+                  <span class="blue-text">{tv_symbol} stock chart</span>
+                </a><span class="trademark"> by TradingView</span>
+              </div>
+              <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
+              {{
+              "allow_symbol_change": true,
+              "calendar": false,
+              "details": false,
+              "hide_side_toolbar": false,
+              "hide_top_toolbar": false,
+              "hide_legend": false,
+              "hide_volume": false,
+              "hotlist": false,
+              "interval": "D",
+              "locale": "en",
+              "save_image": true,
+              "style": "1",
+              "symbol": "NASDAQ:{tv_symbol}",
+              "theme": "light",
+              "timezone": "Etc/UTC",
+              "backgroundColor": "#ffffff",
+              "gridColor": "rgba(46, 46, 46, 0.06)",
+              "withdateranges": false,
+              "autosize": true
+              }}
+              </script>
+            </div>
+            <!-- TradingView Widget END -->
+            """
+
+            components.html(tradingview_html, height=640)
 
     except Exception as e:
         st.error(f"Fehler beim Laden der Daten: {e}")
