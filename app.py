@@ -148,7 +148,7 @@ if ticker_symbol:
             tv_symbol = ticker_symbol.upper()
             tradingview_html = f"""
             <!-- TradingView Widget BEGIN -->
-            <div class="tradingview-widget-container" style="position:relative; width:100%; min-height:1200px; overflow:hidden;">
+            <div class="tradingview-widget-container" style="position:relative; width:100%; min-height:900px; overflow:hidden;">
               <div class="tradingview-widget-container__widget" style="height:100%; width:100%;"></div>
               <div class="tradingview-widget-copyright" style="position:absolute; bottom:0;">
                 <a href="https://www.tradingview.com/symbols/NASDAQ-{tv_symbol}/" rel="noopener nofollow" target="_blank">
@@ -158,7 +158,7 @@ if ticker_symbol:
               <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
               {{
               "width": "100%",
-              "height": "1200",
+              "height": "900",
               "allow_symbol_change": true,
               "calendar": false,
               "details": false,
@@ -183,7 +183,7 @@ if ticker_symbol:
             <!-- TradingView Widget END -->
             """
 
-            components.html(tradingview_html, height=1300)
+            components.html(tradingview_html, height=0000)
 
     except Exception as e:
         st.error(f"Fehler beim Laden der Daten: {e}")
