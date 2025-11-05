@@ -148,7 +148,7 @@ if ticker_symbol:
             tv_symbol = ticker_symbol.upper()
             tradingview_html = f"""
             <!-- TradingView Widget BEGIN -->
-            <div class="tradingview-widget-container" style="height:100%;width:100%">
+            <div class="tradingview-widget-container" style="height:900px;width:100%">
               <div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div>
               <div class="tradingview-widget-copyright">
                 <a href="https://www.tradingview.com/symbols/NASDAQ-{tv_symbol}/" rel="noopener nofollow" target="_blank">
