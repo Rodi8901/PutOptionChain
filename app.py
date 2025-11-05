@@ -142,47 +142,47 @@ if ticker_symbol:
             # ------------------------------------------------
             # 🔹 TradingView Chart Widget (untere Sektion)
             # ------------------------------------------------
-            st.markdown("---")
-            st.subheader("📊 TradingView Chart")
+st.markdown("---")
+st.subheader("📊 TradingView Chart")
 
-            tv_symbol = ticker_symbol.upper()
-            tradingview_html = f"""
-            <!-- TradingView Widget BEGIN -->
-            <div class="tradingview-widget-container" style="height:100%;width:100%">
-              <div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div>
-              <div class="tradingview-widget-copyright">
-                <a href="https://www.tradingview.com/symbols/NASDAQ-{tv_symbol}/" rel="noopener nofollow" target="_blank">
-                  <span class="blue-text">{tv_symbol} stock chart</span>
-                </a><span class="trademark"> by TradingView</span>
-              </div>
-              <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
-              {{
-              "allow_symbol_change": true,
-              "calendar": false,
-              "details": false,
-              "hide_side_toolbar": false,
-              "hide_top_toolbar": false,
-              "hide_legend": false,
-              "hide_volume": false,
-              "hotlist": false,
-              "interval": "D",
-              "locale": "en",
-              "save_image": true,
-              "style": "1",
-              "symbol": "NASDAQ:{tv_symbol}",
-              "theme": "light",
-              "timezone": "Etc/UTC",
-              "backgroundColor": "#ffffff",
-              "gridColor": "rgba(46, 46, 46, 0.06)",
-              "withdateranges": false,
-              "autosize": true
-              }}
-              </script>
-            </div>
-            <!-- TradingView Widget END -->
-            """
+tv_symbol = ticker_symbol.upper()
+tradingview_html = f"""
+<!-- TradingView Widget BEGIN -->
+<div class="tradingview-widget-container" style="height:900px;width:100%">
+  <div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div>
+  <div class="tradingview-widget-copyright">
+    <a href="https://www.tradingview.com/symbols/NASDAQ-{tv_symbol}/" rel="noopener nofollow" target="_blank">
+      <span class="blue-text">{tv_symbol} stock chart</span>
+    </a><span class="trademark"> by TradingView</span>
+  </div>
+  <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
+  {{
+  "allow_symbol_change": true,
+  "calendar": false,
+  "details": false,
+  "hide_side_toolbar": false,
+  "hide_top_toolbar": false,
+  "hide_legend": false,
+  "hide_volume": false,
+  "hotlist": false,
+  "interval": "D",
+  "locale": "en",
+  "save_image": true,
+  "style": "1",
+  "symbol": "NASDAQ:{tv_symbol}",
+  "theme": "light",
+  "timezone": "Etc/UTC",
+  "backgroundColor": "#ffffff",
+  "gridColor": "rgba(46, 46, 46, 0.06)",
+  "withdateranges": false,
+  "autosize": true
+  }}
+  </script>
+</div>
+<!-- TradingView Widget END -->
+"""
 
-            components.html(tradingview_html, height=640)
+components.html(tradingview_html, height=920)
 
     except Exception as e:
         st.error(f"Fehler beim Laden der Daten: {e}")
