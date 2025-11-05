@@ -24,7 +24,33 @@ if ticker_symbol:
         st.subheader("Optionsdaten")
 
         if current_price:
-            st.markdown(f"**Basiswert:** {ticker_symbol.upper()} | **Aktueller Kurs:** {current_price:.2f} USD")
+            company_name = stock_info.get("longName", ticker_symbol.upper())
+            pe_ratio = stock_info.get("trailingPE", None)
+            day_change = stock_info.get("regularMarketChangePercent", None)
+            earnings_date = stock_info.get("earningsDate", None)
+
+            # Formatierung für Anzeige
+            pe_display = f"{pe_ratio:.2f}" if pe_ratio else "—"
+            day_change_display = f"{day_change:.2f}%" if day_change else "—"
+            if day_change and day_change > 0:
+                day_change_display = f"🟢 +{day_change_display}"
+            elif day_change and day_change < 0:
+                day_change_display = f"🔴 {day_change_display}"
+
+            if isinstance(earnings_date, list) and len(earnings_date) > 0:
+                earnings_date_display = earnings_date[0].strftime("%Y-%m-%d")
+            elif isinstance(earnings_date, pd.Timestamp):
+                earnings_date_display = earnings_date.strftime("%Y-%m-%d")
+            else:
+                earnings_date_display = "—"
+
+            st.markdown(
+                f"""
+                **Unternehmen:** {company_name}  
+                **Basiswert:** {ticker_symbol.upper()} | **Aktueller Kurs:** {current_price:.2f} USD  
+                **KGV:** {pe_display} | **Tägliche Veränderung:** {day_change_display} | **Earnings Date:** {earnings_date_display}
+                """
+            )
 
         # Ablaufdaten laden
         expirations = ticker.options
@@ -216,6 +242,24 @@ if ticker_symbol:
             <!-- TradingView Widget END -->
             """
             components.html(tradingview_html, height=1000)
+
+            # --- Nach oben springen Button ---
+            st.markdown(
+                """
+                <div style='text-align:center; margin-top:20px;'>
+                    <a href='#' style='
+                        display:inline-block;
+                        background-color:#007bff;
+                        color:white;
+                        padding:10px 20px;
+                        border-radius:8px;
+                        text-decoration:none;
+                        font-weight:600;
+                    '>⬆️ Nach oben</a>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
     except Exception as e:
         st.error(f"Fehler beim Laden der Daten: {e}")
