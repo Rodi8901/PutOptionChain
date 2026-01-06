@@ -34,7 +34,16 @@ if ticker_symbol:
         stock_info = ticker.info
 
         current_price = stock_info.get("currentPrice", None)
-        market_cap = stock_info.get("marketCap", None)
+        market_cap = None
+
+# Fallback-Logik für Market Cap
+if "marketCap" in stock_info and stock_info["marketCap"]:
+    market_cap = stock_info["marketCap"]
+else:
+    try:
+        market_cap = ticker.fast_info.get("market_cap", None)
+    except Exception:
+        market_cap = None
 
         st.subheader("Optionsdaten")
 
