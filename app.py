@@ -28,9 +28,6 @@ if ticker_symbol:
             pe_ratio = stock_info.get("trailingPE", None)
             day_change = stock_info.get("regularMarketChangePercent", None)
             earnings_date = stock_info.get("earningsDate", None)
-            
-            # --- NEU: Market Cap abrufen ---
-            market_cap = stock_info.get("marketCap", None)
 
             # Formatierung für Anzeige
             pe_display = f"{pe_ratio:.2f}" if pe_ratio else "—"
@@ -47,24 +44,10 @@ if ticker_symbol:
             else:
                 earnings_date_display = "—"
 
-            # --- NEU: Market Cap Formatierung (Mio/Mrd/Bio) ---
-            if market_cap:
-                if market_cap >= 1e12:
-                    market_cap_display = f"{market_cap / 1e12:.2f} Bio. USD"
-                elif market_cap >= 1e9:
-                    market_cap_display = f"{market_cap / 1e9:.2f} Mrd. USD"
-                elif market_cap >= 1e6:
-                    market_cap_display = f"{market_cap / 1e6:.2f} Mio. USD"
-                else:
-                    market_cap_display = f"{market_cap:,.0f} USD"
-            else:
-                market_cap_display = "—"
-
-            # --- Anzeige erweitert um Market Cap ---
             st.markdown(
                 f"""
                 **Unternehmen:** {company_name}  
-                **Basiswert:** {ticker_symbol.upper()} | **Aktueller Kurs:** {current_price:.2f} USD | **Market Cap:** {market_cap_display}  
+                **Basiswert:** {ticker_symbol.upper()} | **Aktueller Kurs:** {current_price:.2f} USD  
                 **KGV:** {pe_display} | **Tägliche Veränderung:** {day_change_display} | **Earnings Date:** {earnings_date_display}
                 """
             )
@@ -228,6 +211,7 @@ if ticker_symbol:
                 tv_full_symbol = tv_symbol  # ohne Präfix, damit TradingView selbst entscheidet
 
             tradingview_html = f"""
+            <!-- TradingView Widget BEGIN -->
             <div class="tradingview-widget-container" style="position:relative; width:100%; min-height:900px; overflow:hidden;">
               <div class="tradingview-widget-container__widget" style="height:100%; width:100%;"></div>
               <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
@@ -255,6 +239,7 @@ if ticker_symbol:
               }}
               </script>
             </div>
+            <!-- TradingView Widget END -->
             """
             components.html(tradingview_html, height=1000)
 
